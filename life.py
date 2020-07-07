@@ -79,21 +79,16 @@ class Genome:
 
 class RouletteWheelSelector:
     
-    def __init__(self):
-        None
+    def __init__(self, power = 1):
+        self.power = power
 
     def select(self, scores):
         if 0 in scores:
             raise Exception("Zero score not allowed!")
-        scores = np.power(scores, 3)
-        roulette = list()
-        total = 0
-        for score in scores:
-            total += score 
-            roulette.append(total)
-            
-        np_roulette = np.array(roulette)
-        rand = np.random.randint(0, total, scores.size)
+        scores = np.power(scores, self.power)
+        np_roulette = np.cumsum(scores)  
+        total = np.sum(scores)
+        rand = np.random.randint(1, total + 1, scores.size)
         result = np.searchsorted(np_roulette, rand)
         return result
 
@@ -316,6 +311,10 @@ class gEater:
     def draw(self, graphWinObj):
         self.body.draw(graphWinObj)
         self.head.draw(graphWinObj)
+    
+    def undraw(self):
+        self.body.undraw()
+        self.head.undraw()
 
 class gFood:
     def __init__(self, pos):
@@ -332,26 +331,78 @@ class gFood:
 
     def draw(self, graphWinObj):
         self.food.draw(graphWinObj)
+    
+    def undraw(self):
+        self.food.undraw()
+
+class gList:
+
+    def __init__(self):
+        self.glist = list()
+    
+    def append(self, item):
+        self.glist.append(item)
+
+    def update(self, g_coord_list):
+        for item, g_coord in zip(self.glist, g_coord_list):
+            item.update(g_coord)
+
+    def draw(self, graphWin):
+        for item in self.glist:
+            item.draw(graphWin)
+    
+    def undraw(self):
+        for item in self.glist:
+            item.undraw()
 
 class Graphic:
-    def __init__(self, width, heigth, eater_coords, eater_orien, food_coords):
+    def __init__(self, width, heigth):
         self.CELL_PIXEL_SIZE = 5
         self.START = True
         self.win = GraphWin("Life", width*self.CELL_PIXEL_SIZE, heigth*self.CELL_PIXEL_SIZE, autoflush=False)
-        self.eaters = self.build_eater_list(self.build_g_coord_list(eater_coords, eater_orien))
-        self.draw_list(self.win, self.eaters)
-        self.food = self.build_food_list(self.build_g_coord_list(food_coords))
-        self.draw_list(self.win, self.food)
+        self.is_initialized = False
+        
+    def _init_lists(self, eater_coords, eater_orien, food_coords):
+        self.eaters = gList()
+        g_eater_coord_list = self.build_g_coord_list(eater_coords, eater_orien)
+        for item in g_eater_coord_list:
+            self.eaters.append(gEater(item))
+
+        self.eaters.draw(self.win)
+
+        self.food = gList()
+        g_food_coord_list = self.build_g_coord_list(food_coords)
+        for item in g_food_coord_list:
+            self.food.append(gFood(item))
+            
+        self.food.draw(self.win)
+
+        self.win.update()
+        self.is_initialized = True
+    
+    def _update_lists(self, eater_coords, eater_orien, food_coords):
+        eater_coord_list = self.build_g_coord_list(eater_coords, eater_orien)
+        self.eaters.update(eater_coord_list)
+
+        food_coord_list = self.build_g_coord_list(food_coords)
+        self.food.update(food_coord_list)
+        self.food.draw(self.win)
+
         self.win.update()
 
     def draw(self, eater_coords, eater_orien, food_coords):
-        eater_coord_list = self.build_g_coord_list(eater_coords, eater_orien)
-        self.update_list(self.eaters, eater_coord_list)
-        food_coord_list = self.build_g_coord_list(food_coords)
-        self.update_list(self.food, food_coord_list)
-        self.draw_list(self.win, self.food)
-        self.win.update()
+        if self.is_initialized:
+            self._update_lists(eater_coords, eater_orien, food_coords)
+        else:
+            self._init_lists(eater_coords, eater_orien, food_coords)
     
+    def reset(self):
+        if self.is_initialized == False:
+            raise Exception("Missing initialization!")
+        self.eaters.undraw()
+        self.food.undraw()
+        self.is_initialized = False
+
     def close(self):
         self.win.close()
 
@@ -367,35 +418,12 @@ class Graphic:
                 g_coord_list.append(item)
         return g_coord_list
 
-    def build_eater_list(self, g_coord_list):
-        elist = list()
-        for g_coord in g_coord_list:
-            item = gEater(g_coord)
-            elist.append(item)
-        return elist
-
-    def build_food_list(self, g_coord_list):
-        elist = list()
-        for g_coord in g_coord_list:
-            item = gFood(g_coord)
-            elist.append(item)
-        return elist
-
-    def update_list(self, items, coord_list):
-        for item, coord in zip(items, coord_list):
-            item.update(coord)
-
-    def draw_list(self, graphWin, list):
-        for item in list:
-            item.draw(graphWin)
-
 
 class Game:
     def __init__(self, world, population):
         self.w = world
         self.p = population
         
-
     @staticmethod
     def build(sim_params):
         w = World(sim_params)
@@ -420,13 +448,17 @@ class Game:
 
     def get_food_coordinates(self):
         return self.w.get_food_coordinates().coordinates
+    
+    def reset(self, world, population):
+        self.w = world
+        self.p = population
 
 class GraphicGame(Game):
 
     def __init__(self, sim_params, world, population, fps):
         super().__init__(world, population)
         self.sleep_time = 1.0/fps
-        self.graphic = Graphic(sim_params.world_width, sim_params.world_heigth, super().get_coordinates(), super().get_orientations(), super().get_food_coordinates())
+        self.graphic = Graphic(sim_params.world_width, sim_params.world_heigth)
     
     @staticmethod
     def build(sim_params, fps):
@@ -439,14 +471,18 @@ class GraphicGame(Game):
             super().do_step()
             time.sleep(self.sleep_time)
             self.graphic.draw(super().get_coordinates(), super().get_orientations(),super().get_food_coordinates())
-        self.graphic.close()
+    
+    def reset(self, world, population):
+        super().reset(world, population)
+        self.graphic.reset()
 
+    def exit(self):
+        self.graphic.close()
 
 class GeneticAlgorithm:
 
-    def __init__(self, sim_params, selector, mutation_rate, is_graphic):
+    def __init__(self, sim_params, selector, mutation_rate):
         self.sim_params = sim_params
-        self.is_graphic = is_graphic
         self.world = World(sim_params)
         self.population = Population.init_from_params(sim_params, self.world)
         self.game = self._get_game(self.world, self.population)
@@ -459,26 +495,31 @@ class GeneticAlgorithm:
             print(np.mean(self.population.scores))
             self.evolve()
             
-            
     def evolve(self):           
         new_genome = self.population.evolve_genome(self.selector, self.mutation_rate)
         self.world = World.init_from_other_world(self.world)
         self.population = Population.init_from_genome(self.population, new_genome, self.world)
-        self.game = self._get_game(self.world,self.population)
+        self.game.reset(self.world,self.population)
 
     def _get_game(self, world, population):
-        if self.is_graphic:
-            return GraphicGame(self.sim_params, world, population, 25)
-        else:
-            return Game(world, population)
+        return Game(world, population)
             
+class GraphicGeneticAlgorithm(GeneticAlgorithm):
 
+    def __init__(self, sim_params, selector, mutation_rate, fps):
+        self.fps = fps
+        super().__init__(sim_params, selector, mutation_rate)
 
+    def play(self, generations, step):
+        super().play(generations, step)
+        self.game.exit()
+
+    def _get_game(self, world, population):
+        return GraphicGame(self.sim_params, world, population, self.fps)
 
 
 
 
 s = SimulationParams(100, 100, 50, 200)
-#g = GraphicGame.build(s, 2)
-g = GeneticAlgorithm(s, RouletteWheelSelector(), 0.5, True)
+g = GraphicGeneticAlgorithm(s, RouletteWheelSelector(2), 0.5, 25)
 g.play(100, 200)
