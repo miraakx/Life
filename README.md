@@ -20,11 +20,11 @@ L'algoritmo consiste nei seguenti passaggi:
 * Inizializza la popolazione degli Eater in posizioni e orientamenti casuali.  
 * Inizializza il genoma con valori casuali.  
 * Inizializza il cibo in posizioni casuali.  
-* Se un Eater si trova su una casella con del cibo il suo punteggio (score) viene automaticamente incrementato di uno (per ragiorni tecniche legate all'algoritmo di selezione lo score iniziale di ogni Eater è uno e non zero).  
 * Per ogni Eater guarda cosa c'è di fronte.  
 * Consulta la matrice delle mosse per stabilire la mossa successiva in base alla memoria interna e a cosa c'è di fronte.  
 * Esegui la mossa.  
 * Consulta la matrice di memoria per stabilire il nuovo stato di memoria interna.  
+* Se un Eater si trova su una casella con del cibo il suo punteggio (score) viene automaticamente incrementato di uno (per ragiorni tecniche legate all'algoritmo di selezione lo score iniziale di ogni Eater è uno e non zero).  
 * Rigenera il cibo mangiato.  
 * Ritorna al punto 4.  
 

@@ -457,9 +457,9 @@ class Game:
         return Game(w, p)
 
     def do_step(self):
-        self.p.eat()
         self.p.move()
         self.p.update_memory()
+        self.p.eat()
         self.w.respawn_food()
 
     def play(self, step):
