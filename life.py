@@ -296,6 +296,8 @@ class gEater:
         self.body_coord_old = body_coord
         self.head_coord_old = head_coord
 
+        self.is_updated = False
+
     def update(self, pos):
         body_coord = pos.coord
         delta_body_coord = body_coord - self.body_coord_old
@@ -308,9 +310,12 @@ class gEater:
         self.body_coord_old = body_coord
         self.head_coord_old = head_coord
 
+        self.is_updated = True
+
     def draw(self, graphWinObj):
-        self.body.draw(graphWinObj)
-        self.head.draw(graphWinObj)
+        if not self.is_updated:
+            self.body.draw(graphWinObj)
+            self.head.draw(graphWinObj)
     
     def undraw(self):
         self.body.undraw()
@@ -337,83 +342,101 @@ class gFood:
 
 class gList:
 
-    def __init__(self):
-        self.glist = list()
-    
+    def __init__(self, item_type, g_coord_list):
+        self.g_list = list()
+        for g_coord in g_coord_list:
+            self.g_list.append(gItemFactory.build(item_type, g_coord))
+   
     def append(self, item):
-        self.glist.append(item)
+        self.g_list.append(item)
 
     def update(self, g_coord_list):
-        for item, g_coord in zip(self.glist, g_coord_list):
+        for item, g_coord in zip(self.g_list, g_coord_list):
             item.update(g_coord)
 
     def draw(self, graphWin):
-        for item in self.glist:
+        for item in self.g_list:
             item.draw(graphWin)
     
     def undraw(self):
-        for item in self.glist:
+        for item in self.g_list:
             item.undraw()
 
+class gItemFactory:
+
+    FOOD_KEY = "food"
+    EATER_KEY = "eater"
+
+    ITEMS_MAP = {
+            FOOD_KEY: lambda pos: gFood(pos),
+            EATER_KEY: lambda pos: gEater(pos)
+        }
+    
+    items_keys = ITEMS_MAP.keys()
+
+    @staticmethod
+    def build(item_type, gcoord):
+        lamda_fn = gItemFactory.ITEMS_MAP.get(item_type, lambda: "Error")
+        return lamda_fn(gcoord)
+
+    @staticmethod
+    def items():
+        return gItemFactory.items_keys
+
 class Graphic:
+
     def __init__(self, width, heigth):
         self.CELL_PIXEL_SIZE = 5
         self.START = True
         self.win = GraphWin("Life", width*self.CELL_PIXEL_SIZE, heigth*self.CELL_PIXEL_SIZE, autoflush=False)
         self.is_initialized = False
         
-    def _init_lists(self, eater_coords, eater_orien, food_coords):
-        self.eaters = gList()
-        g_eater_coord_list = self.build_g_coord_list(eater_coords, eater_orien)
-        for item in g_eater_coord_list:
-            self.eaters.append(gEater(item))
-
-        self.eaters.draw(self.win)
-
-        self.food = gList()
-        g_food_coord_list = self.build_g_coord_list(food_coords)
-        for item in g_food_coord_list:
-            self.food.append(gFood(item))
-            
-        self.food.draw(self.win)
-
+    def _init_lists(self, np_coords_map):
+        if self.is_initialized == True:
+            raise Exception("Already initialized! Call reset() before")
+        self.items = {}
+        for item_type in gItemFactory.items():
+            np_coords_tuple = np_coords_map.get(item_type)
+            g_list = gList(item_type, self.build_g_coord_list(np_coords_tuple))
+            g_list.draw(self.win)
+            self.items[item_type] = g_list
         self.win.update()
         self.is_initialized = True
     
-    def _update_lists(self, eater_coords, eater_orien, food_coords):
-        eater_coord_list = self.build_g_coord_list(eater_coords, eater_orien)
-        self.eaters.update(eater_coord_list)
-
-        food_coord_list = self.build_g_coord_list(food_coords)
-        self.food.update(food_coord_list)
-        self.food.draw(self.win)
-
+    def _update_lists(self, np_coords_map):
+        if self.is_initialized == False:
+            raise Exception("Missing initialization!")
+        for item_type in gItemFactory.items():
+            np_coords_tuple = np_coords_map.get(item_type)
+            g_coord_list = self.build_g_coord_list(np_coords_tuple)
+            self.items[item_type].update(g_coord_list)
+            self.items[item_type].draw(self.win)
         self.win.update()
 
-    def draw(self, eater_coords, eater_orien, food_coords):
+    def draw(self, np_coords_map):
         if self.is_initialized:
-            self._update_lists(eater_coords, eater_orien, food_coords)
+            self._update_lists(np_coords_map)
         else:
-            self._init_lists(eater_coords, eater_orien, food_coords)
+            self._init_lists(np_coords_map)
     
     def reset(self):
         if self.is_initialized == False:
             raise Exception("Missing initialization!")
-        self.eaters.undraw()
-        self.food.undraw()
+        for item_type in gItemFactory.items():
+            self.items[item_type].undraw()
         self.is_initialized = False
 
     def close(self):
         self.win.close()
 
-    def build_g_coord_list(self, np_coords, np_orientations = None):
+    def build_g_coord_list(self, np_coord_tuple):
         g_coord_list = list()
-        if np_orientations is None:
-            for row_coords in np_coords:
+        if np_coord_tuple[1] is None:
+            for row_coords in np_coord_tuple[0]:
                 item = gCoords(row_coords)
                 g_coord_list.append(item)
         else:
-            for row_coords, row_orien in zip(np_coords, np_orientations):
+            for row_coords, row_orien in zip(*np_coord_tuple):
                 item = gCoords(row_coords, row_orien)
                 g_coord_list.append(item)
         return g_coord_list
@@ -441,13 +464,10 @@ class Game:
             self.do_step()
     
     def get_coordinates(self):
-        return self.p.coordinates.coordinates
-
-    def get_orientations(self):
-        return self.p.orientations
-
-    def get_food_coordinates(self):
-        return self.w.get_food_coordinates().coordinates
+        return {
+            gItemFactory.EATER_KEY: (self.p.coordinates.coordinates, self.p.orientations),
+            gItemFactory.FOOD_KEY: (self.w.get_food_coordinates().coordinates, None)
+        }
     
     def reset(self, world, population):
         self.w = world
@@ -470,7 +490,7 @@ class GraphicGame(Game):
         for _ in range(step):
             super().do_step()
             time.sleep(self.sleep_time)
-            self.graphic.draw(super().get_coordinates(), super().get_orientations(),super().get_food_coordinates())
+            self.graphic.draw(super().get_coordinates())
     
     def reset(self, world, population):
         super().reset(world, population)
@@ -517,6 +537,10 @@ class GraphicGeneticAlgorithm(GeneticAlgorithm):
     def _get_game(self, world, population):
         return GraphicGame(self.sim_params, world, population, self.fps)
 
+
+#g = gItemFactory()
+#item = g.build("foodx", gCoords([2,4]))
+#print(item)
 
 
 
