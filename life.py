@@ -3,28 +3,67 @@ import random as r
 from graphics import *
 import time
 
-#Definisco lo stato come:
-# 1) un numero tra 0 e 15 che costituisce la memoria dell'individuo
-# 2) un numero che indica cosa c'è di fronte: 0: nothing, 1: food, 2:wall, 3:other bug,
-# Ci sono 64 possibili stati in cui può trovarsi un individuo (16 stati di memory * 4 cose cui può trovarsi davanti)
-# Per ogni stato è definito un outcome, ovvero una azione che può compiere un esemplare, ci sono 64 possibili outcome:
-# 4 per ogni possibile mossa (0: va avanti di una casella, 1 gira a destra, 2 gira di 180 gradi, 3 gira a sinistra).
-# 16 numeri: il nuovo valore da settare in memoria
+# Copyright (c) 2020 https://github.com/miraakx/
+
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+
+#------------------------------------------------------------------------
+
+# Il gioco è costituito da una arena di dimensioni prefissate, da degli individui (detti eater) che possono muoversi in questa arena e da del cibo.
+# Lo scopo del gioco è che ogni eater mangi più cibo possibile. Il cibo si rigenera ogni volta.
+# Ogni eater si muove nell'arena basandosi esclusivamente su ciò che si trova di fronte a lui, sullo stato della sua memoria interna e sul suo genoma che gli consente di stabilire la prossima mossa da compiere.
+
+# Ogni eater ha una memoria (stato interno) costituita da un numero compreso tra 0 e 15.
+# A ogni item in vista è associato un numero che indica cosa c'è di fronte: 0: niente, 1: cibo, 2: parete, 3: eater.
+# Ogni eater vede solo la casella di fronte a sé.
+# Ogni possibile mossa è associata a un numero compreso tra 0 a 3, 0: va avanti di una casella, 1 gira a destra, 2 gira di 180 gradi, 3 gira a sinistra.
+
+# Il genoma consiste di 128 numeri organizzati in due matrici 4 x 16: 
+# Matrice di memoria: 64 possibili stati di memoria ottenuti da 4 possibili item in vista (vuoto, cibo, muro, eater) x 16 stati di memoria interna. 
+# Matrice delle mosse: 64 possibili mosse ottenute in base a 4 possibili item in vista x 16 possbili stati di memoria interna.
 
 # L'algoritmo consiste nei seguenti passaggi:
-# 1) Crea la popolazione
-# 2) Se si trova su una casella con l'erba -> incrementa di 1 lo score.
-# 3) Rigenera l'erba (opzionale)
-# 5) Per ogni individuo guarda cosa c'è di fronte
-# 5) Calcola il nuovo stato
-# 6) Consulta il genoma per stabilire l'outcome
-# 7) Setta la nuova memoria
-# 8) Esegui la mossa
-# 9) Ritorna al punto 2.
+# * Inizializza la popolazione degli eater in posizioni e orientamenti casuali.
+# * Inizializza il genoma con valori casuali.
+# * Inizializza il cibo in posizioni casuali.
+# * Se un eater si trova su una casella con del cibo -> incrementa automaticamente il suo score di 1.
+# * Rigenera il cibo mangiato.
+# * Per ogni eater guarda cosa c'è di fronte.
+# * Consulta la matrice delle mosse per stabilire la mossa successiva in base alla memoria interna e a cosa c'è di fronte.
+# * Consulta la matrice di memoria per stabilire il nuovo stato di memoria interna.
+# * Esegui la mossa.
+# * Ritorna al punto 3.
 
-#Il genoma consiste di 128 numeri: 
-# 64 possibili stati di memoria ottenuti da 16 stati di memoria interna x 4 possibili item in vista (vuoto, cibo, muro, eater)
-# 64 possibili mosse ottenute in base a 4 possibili item in vista x 16 possbili stati di memoria interna
+# Ad ogni generazione vengono selezionati due indiemi di N individui ciascuno (dove N è la dimensione della popolazione), la probabilità che un individuo venga selezionato è proporzionale al suo score (vedi: https://en.wikipedia.org/wiki/Fitness_proportionate_selection).
+# Gli individui dei due insiemi vengono accoppiati in modo casuale e ogno coppia genera due figli.
+# Il genoma dei figli è un mix casuale dei genomi dei genitori.
+# Il genoma dei figli viene mutato in proporzione al mutation_rate, la mutazione si applica a entrambe le matrici che costituiscono il genoma con lo stesso mutation_rate per ciascuna matrice. 
+# La mutazione consiste nel sistituire alcuni dei numeri che costituiscono queste matrici con altri numeri casuali.
+
+# Questo programma cerca di replicare, con alcune differenze, quanto descritto al seguente indirizzo: http://math.hws.edu/eck/js/genetic-algorithm/ga-info.html
+
+# Il programma è stato realizzato con lo scopo di imparare Numpy.
+
+
 class Genome:
 
     def __init__(self, memory, moves, pop_size):
@@ -367,21 +406,21 @@ class GItemFactory:
     FOOD_KEY = "food"
     EATER_KEY = "eater"
 
-    ITEMS_MAP = {
+    _ITEMS_MAP = {
             FOOD_KEY: lambda pos: GFood(pos),
             EATER_KEY: lambda pos: GEater(pos)
         }
     
-    items_keys = ITEMS_MAP.keys()
+    _ITEMS_KEYS = _ITEMS_MAP.keys()
 
     @staticmethod
     def build(item_type, gcoord):
-        lamda_fn = GItemFactory.ITEMS_MAP.get(item_type, lambda: "Error")
+        lamda_fn = GItemFactory._ITEMS_MAP.get(item_type, lambda: "Error")
         return lamda_fn(gcoord)
 
     @staticmethod
     def items():
-        return GItemFactory.items_keys
+        return GItemFactory._ITEMS_KEYS
 
 class Graphic:
 
@@ -393,7 +432,7 @@ class Graphic:
         
     def _init_lists(self, np_coords_map):
         if self.is_initialized == True:
-            raise Exception("Already initialized! Call reset() before")
+            raise Exception("Already initialized! Call reset() before this method.")
         self.items = {}
         for item_type in GItemFactory.items():
             np_coords_tuple = np_coords_map.get(item_type)
@@ -536,12 +575,6 @@ class GraphicGeneticAlgorithm(GeneticAlgorithm):
 
     def _get_game(self, world, population):
         return GraphicGame(self.sim_params, world, population, self.fps)
-
-
-#g = GItemFactory()
-#item = g.build("foodx", GCoords([2,4]))
-#print(item)
-
 
 
 s = SimulationParams(100, 100, 50, 200)
