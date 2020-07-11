@@ -37,6 +37,8 @@ Il programma è stato realizzato con lo scopo di imparare Numpy.
   
 Esempio di utilizzo:  
   
+ATTENZIONE: Il programma dipende dal file graphics.py versione 5.0, il file può essere scaricato da qui: https://mcsp.wartburg.edu/zelle/python/graphics.py e va inerito nella stessa cartella del file life.py.  
+  
 s = SimulationParams(100, 100, 50, 200)  
 g = GraphicGeneticAlgorithm(s, RouletteWheelSelector(2), 0.5, 25)  
 g.play(100, 200)  
