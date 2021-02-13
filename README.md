@@ -30,11 +30,11 @@ L'algoritmo consiste nei seguenti passaggi:
 
 Il tutto viene ripetuto per un numero prefissato di volte, al termine delle ripetizioni entra in gioco l'algoritmo genetico che valuta il punteggio ottenuto da ogni Eater e fa evolvere la popolazione.
 
-Ad ogni generazione vengono selezionati due indiemi di N individui ciascuno (dove N è la dimensione della popolazione), la probabilità che un individuo venga selezionato è proporzionale al suo score (vedi: https://en.wikipedia.org/wiki/Fitness_proportionate_selection).  
+Ad ogni generazione vengono selezionati due insiemi di N individui ciascuno (dove N è la dimensione della popolazione), la probabilità che un individuo venga selezionato è proporzionale al suo score (vedi: https://en.wikipedia.org/wiki/Fitness_proportionate_selection).  
 Gli individui dei due insiemi vengono accoppiati in modo casuale e ogno coppia genera due figli.  
 Il genoma dei figli è un mix casuale dei genomi dei genitori.  
 Il genoma dei figli viene mutato in proporzione al mutation_rate, la mutazione si applica a entrambe le matrici che costituiscono il genoma con lo stesso mutation_rate per ciascuna matrice.  
-La mutazione consiste nel sistituire alcuni dei numeri che costituiscono queste matrici con altri numeri casuali.  
+La mutazione consiste nel sostituire alcuni dei numeri che costituiscono queste matrici con altri numeri casuali.  
   
 Questo programma cerca di replicare, con alcune differenze, quanto descritto al seguente indirizzo: http://math.hws.edu/eck/js/genetic-algorithm/ga-info.html  
   
